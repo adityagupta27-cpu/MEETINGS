@@ -19,7 +19,9 @@ import {
   Save,
   Clock,
   ExternalLink,
-  X
+  X,
+  Copy,
+  Check
 } from 'lucide-react';
 import { api } from '../services/api';
 import RichTextEditor from '../components/RichTextEditor';
@@ -50,6 +52,18 @@ export default function MeetingDetailPage() {
   const [editedSummary, setEditedSummary] = useState('');
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [copiedKey, setCopiedKey] = useState(null);
+
+  const handleCopyText = (text, key) => {
+    if (!text) return;
+    try {
+      navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 2000);
+    } catch (e) {
+      console.warn('Clipboard write failed:', e);
+    }
+  };
 
   // Modals
   const [actionModalOpen, setActionModalOpen] = useState(false);
@@ -384,18 +398,34 @@ export default function MeetingDetailPage() {
         {/* 1. Summary & Rich Text Editor */}
         {activeTab === 'summary' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                You can review, format, or edit the AI-synthesized executive summary and meeting notes below.
+                AI-synthesized executive summary and meeting notes. You can format or edit below.
               </p>
-              <button
-                onClick={handleSaveSummary}
-                disabled={savingSummary}
-                className="flex items-center space-x-1.5 px-4 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50"
-              >
-                <Save className="w-3.5 h-3.5" />
-                <span>{savingSummary ? 'Saving...' : 'Save Notes'}</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => handleCopyText(editedSummary.replace(/<[^>]+>/g, ''), 'summary')}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+                  title="Copy notes to clipboard"
+                >
+                  {copiedKey === 'summary' ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                  <span>{copiedKey === 'summary' ? 'Copied!' : 'Copy Summary'}</span>
+                </button>
+
+                <button
+                  onClick={handleSaveSummary}
+                  disabled={savingSummary}
+                  className="flex items-center space-x-1.5 px-4 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{savingSummary ? 'Saving...' : 'Save Notes'}</span>
+                </button>
+              </div>
             </div>
 
             <RichTextEditor
@@ -409,21 +439,49 @@ export default function MeetingDetailPage() {
         {/* 2. Key Decisions */}
         {activeTab === 'decisions' && (
           <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Formal agreements and strategic choices finalized during this session.
+              </p>
+              {meeting.decisions && meeting.decisions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleCopyText(meeting.decisions.map((d, i) => `${i + 1}. ${d}`).join('\n'), 'all_decisions')}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-all cursor-pointer"
+                >
+                  {copiedKey === 'all_decisions' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedKey === 'all_decisions' ? 'Copied!' : 'Copy Decisions'}</span>
+                </button>
+              )}
+            </div>
+
             {meeting.decisions && meeting.decisions.length > 0 ? (
               <div className="grid grid-cols-1 gap-3">
                 {meeting.decisions.map((decision, idx) => (
                   <div
                     key={idx}
-                    className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-start space-x-3.5"
+                    className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-start justify-between gap-3 group"
                   >
-                    <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 mt-0.5">
-                      <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    </div>
-                    <div>
+                    <div className="flex items-start space-x-3.5">
+                      <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0">
+                        <CheckCircle2 className="w-4 h-4" />
+                      </div>
                       <p className="text-sm font-medium text-slate-900 dark:text-white leading-relaxed">
                         {decision}
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText(decision, `decision_${idx}`)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0 opacity-70 group-hover:opacity-100"
+                      title="Copy decision"
+                    >
+                      {copiedKey === `decision_${idx}` ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
                   </div>
                 ))}
               </div>
@@ -442,16 +500,37 @@ export default function MeetingDetailPage() {
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                 Deliverables & Follow-ups ({actions.length})
               </h3>
-              <button
-                onClick={() => {
-                  setEditingAction(null);
-                  setActionModalOpen(true);
-                }}
-                className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Task</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                {actions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const text = actions
+                        .map(
+                          (a, i) =>
+                            `${i + 1}. [${a.status.toUpperCase()}] ${a.task} (Owner: ${a.owner || 'Unassigned'}, Due: ${a.due_date || 'None'}, Priority: ${a.priority})`
+                        )
+                        .join('\n');
+                      handleCopyText(text, 'all_actions');
+                    }}
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    {copiedKey === 'all_actions' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedKey === 'all_actions' ? 'Copied!' : 'Copy All'}</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    setEditingAction(null);
+                    setActionModalOpen(true);
+                  }}
+                  className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Task</span>
+                </button>
+              </div>
             </div>
 
             {actions.length > 0 ? (
@@ -575,21 +654,49 @@ export default function MeetingDetailPage() {
         {/* 4. Risks & Concerns */}
         {activeTab === 'risks' && (
           <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Technical, operational, or scheduling vulnerabilities surfaced during discussion.
+              </p>
+              {meeting.risks && meeting.risks.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleCopyText(meeting.risks.map((r, i) => `${i + 1}. ${r}`).join('\n'), 'all_risks')}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-all cursor-pointer"
+                >
+                  {copiedKey === 'all_risks' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedKey === 'all_risks' ? 'Copied!' : 'Copy Risks'}</span>
+                </button>
+              )}
+            </div>
+
             {meeting.risks && meeting.risks.length > 0 ? (
               <div className="grid grid-cols-1 gap-3">
                 {meeting.risks.map((risk, idx) => (
                   <div
                     key={idx}
-                    className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-start space-x-3.5"
+                    className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-start justify-between gap-3 group"
                   >
-                    <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 mt-0.5">
-                      <AlertTriangle className="w-4 h-4 shrink-0" />
-                    </div>
-                    <div>
+                    <div className="flex items-start space-x-3.5">
+                      <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0">
+                        <AlertTriangle className="w-4 h-4" />
+                      </div>
                       <p className="text-sm font-medium text-slate-900 dark:text-white leading-relaxed">
                         {risk}
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText(risk, `risk_${idx}`)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0 opacity-70 group-hover:opacity-100"
+                      title="Copy risk"
+                    >
+                      {copiedKey === `risk_${idx}` ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
                   </div>
                 ))}
               </div>
@@ -604,21 +711,49 @@ export default function MeetingDetailPage() {
         {/* 5. Unanswered Questions */}
         {activeTab === 'questions' && (
           <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Unresolved inquiries or dependencies requiring subsequent alignment.
+              </p>
+              {meeting.unanswered_questions && meeting.unanswered_questions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleCopyText(meeting.unanswered_questions.map((q, i) => `${i + 1}. ${q}`).join('\n'), 'all_questions')}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-all cursor-pointer"
+                >
+                  {copiedKey === 'all_questions' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedKey === 'all_questions' ? 'Copied!' : 'Copy Questions'}</span>
+                </button>
+              )}
+            </div>
+
             {meeting.unanswered_questions && meeting.unanswered_questions.length > 0 ? (
               <div className="grid grid-cols-1 gap-3">
                 {meeting.unanswered_questions.map((question, idx) => (
                   <div
                     key={idx}
-                    className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-start space-x-3.5"
+                    className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-start justify-between gap-3 group"
                   >
-                    <div className="p-1.5 rounded-lg bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 mt-0.5">
-                      <HelpCircle className="w-4 h-4 shrink-0" />
-                    </div>
-                    <div>
+                    <div className="flex items-start space-x-3.5">
+                      <div className="p-1.5 rounded-lg bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0">
+                        <HelpCircle className="w-4 h-4" />
+                      </div>
                       <p className="text-sm font-medium text-slate-900 dark:text-white leading-relaxed">
                         {question}
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText(question, `question_${idx}`)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0 opacity-70 group-hover:opacity-100"
+                      title="Copy question"
+                    >
+                      {copiedKey === `question_${idx}` ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
                   </div>
                 ))}
               </div>
@@ -633,15 +768,45 @@ export default function MeetingDetailPage() {
         {/* 6. Discussion Points */}
         {activeTab === 'points' && (
           <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Key agenda topics, debate threads, and technical considerations.
+              </p>
+              {meeting.discussion_points && meeting.discussion_points.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleCopyText(meeting.discussion_points.map((p, i) => `${i + 1}. ${p}`).join('\n'), 'all_points')}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-all cursor-pointer"
+                >
+                  {copiedKey === 'all_points' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedKey === 'all_points' ? 'Copied!' : 'Copy Points'}</span>
+                </button>
+              )}
+            </div>
+
             {meeting.discussion_points && meeting.discussion_points.length > 0 ? (
               <ul className="space-y-2.5">
                 {meeting.discussion_points.map((point, idx) => (
                   <li
                     key={idx}
-                    className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-800 dark:text-slate-200 flex items-start space-x-3"
+                    className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-800 dark:text-slate-200 flex items-start justify-between gap-3 group shadow-2xs"
                   >
-                    <span className="w-2 h-2 rounded-full bg-indigo-500 mt-2 shrink-0" />
-                    <span className="leading-relaxed">{point}</span>
+                    <div className="flex items-start space-x-3">
+                      <span className="w-2 h-2 rounded-full bg-indigo-500 mt-2 shrink-0" />
+                      <span className="leading-relaxed font-medium">{point}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText(point, `point_${idx}`)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0 opacity-70 group-hover:opacity-100"
+                      title="Copy point"
+                    >
+                      {copiedKey === `point_${idx}` ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
                   </li>
                 ))}
               </ul>

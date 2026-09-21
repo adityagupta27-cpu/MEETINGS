@@ -168,19 +168,23 @@ class MockAIService(BaseAIService):
         discussion_points: List[str] = []
         for line in lines:
             clean = re.sub(r"^[A-Za-z0-9_\-\s]{1,30}:\s*", "", line)
-            if len(clean) > 20 and clean not in decisions and clean not in risks and clean not in unanswered_questions:
-                discussion_points.append(clean)
+            clean = clean.strip()
+            if len(clean) > 25 and clean not in decisions and clean not in risks and clean not in unanswered_questions:
+                # Filter out raw conversational fillers
+                if not clean.lower().startswith(("hello", "hi ", "bye", "thanks", "thank you", "okay", "alright", "yes", "no")):
+                    discussion_points.append(clean)
             if len(discussion_points) >= 6:
                 break
 
         # 6. Executive Summary Synthesis
-        participants_str = ", ".join(known_participants[:4]) if known_participants else "The team"
-        topics_str = f"focusing on {discussion_points[0].lower()}" if discussion_points else "reviewing key project items"
-        summary = (
-            f"{participants_str} met on {base_date.isoformat()} {topics_str}. "
-            f"The team finalized {len(decisions)} key decision(s) and assigned {len(action_items)} action item(s). "
-            f"{'Identified risks and unanswered questions were flagged for team follow-up.' if (risks or unanswered_questions) else 'No major blockers were identified.'}"
-        )
+        participants_str = ", ".join(known_participants[:4]) if known_participants else "The project team"
+        key_theme = discussion_points[0] if discussion_points else "the core sprint deliverables"
+        summary_paragraphs = [
+            f"{participants_str} convened on {base_date.isoformat()} to review {key_theme} and align on operational priorities.",
+            f"Key progress was made with {len(decisions)} strategic decision(s) reached and {len(action_items)} high-priority action item(s) committed across the team.",
+            "Potential risks and pending technical questions were cataloged to ensure proactive unblocking in the next iteration." if (risks or unanswered_questions) else "All items proceeded according to schedule with no major impediments reported."
+        ]
+        summary = " ".join(summary_paragraphs)
 
         return AIAnalysisResponse(
             summary=summary,
@@ -194,7 +198,7 @@ class MockAIService(BaseAIService):
 class GeminiAIService(BaseAIService):
     """
     Live AI service integration with Google Gemini REST API.
-    Falls back gracefully to MockAIService if the API call encounters quota limits, network issues, or invalid keys.
+    Uses gemini-2.5-flash as primary model with fallback to gemini-flash-latest and MockAIService.
     """
     def __init__(self, api_key: str):
         self.api_key = api_key
@@ -206,73 +210,89 @@ class GeminiAIService(BaseAIService):
         participants: Optional[List[str]] = None,
         meeting_date: Optional[date] = None
     ) -> AIAnalysisResponse:
-        participants_list = participants or []
+        participants_list = [p.strip() for p in (participants or []) if p.strip()]
         base_date = meeting_date or date.today()
 
         system_instruction = (
-            "You are an expert AI meeting analyst. Analyze the provided meeting transcript strictly and faithfully.\n"
-            "Guardrails:\n"
-            "- Use ONLY facts stated in the transcript.\n"
-            "- Do NOT invent decisions, owners, commitments, dates, or details.\n"
-            f"- Allowed participants list: {participants_list}. If an owner is not clearly stated or not in this list, set owner to null.\n"
-            "- If a due date is not explicitly mentioned or clearly anchored, set due_date to null.\n"
-            "- If no decisions were made, return decisions as an empty list [].\n"
-            "- Return a valid JSON object matching the exact schema."
+            "You are an executive-level AI Meeting Intelligence Specialist. "
+            "Your objective is to produce comprehensive, articulate, and actionable executive meeting analyses from transcripts.\n\n"
+            "STRICT GROUNDING & ANTI-HALLUCINATION RULES:\n"
+            "1. Grounding: Rely strictly on the explicit content of the transcript. Never invent facts, promises, or dates.\n"
+            f"2. Owner Assignment: Allowed attendees are strictly: {participants_list}. Only assign an action item owner if they explicitly match or correspond to one of these attendees. Otherwise, set owner to null.\n"
+            "3. Due Dates: Extract explicitly mentioned dates (format as YYYY-MM-DD). If relative terms like 'tomorrow', 'Friday', or 'next week' are used, compute the date relative to the Meeting Date. If no timeline is mentioned, set due_date to null.\n"
+            "4. Decisions: If no consensus or decision was finalized, return decisions as an empty list [].\n"
+            "5. Quality & Tone: Summary should be an executive-grade narrative (2-3 detailed paragraphs) capturing meeting purpose, key deliberation dynamics, and alignment outcomes. Discussion points must be clear, well-articulated bullet points."
         )
 
         prompt = f"""
 Meeting Date: {base_date.isoformat()}
-Known Participants: {json.dumps(participants_list)}
+Known Attendees: {json.dumps(participants_list)}
 
-Transcript:
+Meeting Transcript:
 \"\"\"
 {transcript}
 \"\"\"
 
-Return ONLY a JSON object matching this schema:
+Produce a comprehensive, polished JSON output matching this exact structure:
 {{
-  "summary": "Concise executive summary grounded in transcript",
-  "discussion_points": ["point 1", "point 2"],
-  "decisions": ["decision 1"],
+  "summary": "Executive-level narrative summary (2-3 paragraphs) detailing the meeting objectives, substantive deliberations, consensus reached, and strategic next steps.",
+  "discussion_points": [
+    "Comprehensive summary of topic 1 discussed",
+    "Comprehensive summary of topic 2 discussed"
+  ],
+  "decisions": [
+    "Concrete, finalized decision or agreement 1",
+    "Concrete, finalized decision or agreement 2"
+  ],
   "action_items": [
     {{
-      "task": "Specific actionable task",
-      "owner": "Participant Name or null",
+      "task": "Specific, actionable deliverable with clear scope",
+      "owner": "Exact attendee name or null",
       "due_date": "YYYY-MM-DD or null",
       "priority": "low | medium | high",
       "status": "open"
     }}
   ],
-  "risks": ["identified risk or concern"],
-  "unanswered_questions": ["open unresolved question"]
+  "risks": [
+    "Explicit technical, architectural, timeline, or operational risk discussed"
+  ],
+  "unanswered_questions": [
+    "Unresolved inquiry or question raised that remains to be followed up"
+  ]
 }}
 """
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.api_key}"
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "systemInstruction": {"parts": [{"text": system_instruction}]},
-            "generationConfig": {
-                "response_mime_type": "application/json",
-                "temperature": 0.1
+        # Models to try in order of priority
+        candidate_models = ["gemini-2.5-flash", "gemini-flash-latest"]
+        
+        for model in candidate_models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}],
+                "systemInstruction": {"parts": [{"text": system_instruction}]},
+                "generationConfig": {
+                    "response_mime_type": "application/json",
+                    "temperature": 0.1
+                }
             }
-        }
 
-        try:
-            with httpx.Client(timeout=15.0) as client:
-                response = client.post(url, json=payload)
-                if response.status_code == 200:
-                    data = response.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        raw_text = candidates[0]["content"]["parts"][0]["text"]
-                        parsed_json = json.loads(raw_text)
-                        return AIAnalysisResponse.model_validate(parsed_json)
-                logger.warning(f"Gemini API returned status {response.status_code}, falling back to Heuristic AI")
-        except Exception as e:
-            logger.warning(f"Error calling Gemini API: {str(e)[:100]}, falling back to Heuristic AI")
+            try:
+                with httpx.Client(timeout=30.0) as client:
+                    response = client.post(url, json=payload)
+                    if response.status_code == 200:
+                        data = response.json()
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            raw_text = candidates[0]["content"]["parts"][0]["text"]
+                            parsed_json = json.loads(raw_text)
+                            logger.info(f"Successfully generated AI analysis using {model}")
+                            return AIAnalysisResponse.model_validate(parsed_json)
+                    else:
+                        logger.warning(f"Gemini model {model} returned status {response.status_code}: {response.text[:200]}")
+            except Exception as e:
+                logger.warning(f"Error calling Gemini model {model}: {str(e)[:150]}")
 
-        # Graceful fallback to heuristic mock
+        logger.warning("All Gemini API models failed or were unavailable; falling back to Heuristic AI")
         return self.fallback.analyze_transcript(transcript, participants, meeting_date)
 
 def get_ai_service() -> BaseAIService:

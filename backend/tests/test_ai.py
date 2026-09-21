@@ -9,6 +9,8 @@ Sarah: Agreed. We decided to use SQLite with WAL mode.
 David: I will implement the database connection pooling and schema migrations by tomorrow.
 Sarah: What if our database file grows larger than 5GB?
 David: That is a potential risk if high concurrent writes occur.
+Sarah: What is our exact timeline for multi-region backups? We need to follow up on this later.
+David: Let's table that question for our next meeting.
 Sarah: I can handle the frontend React components by Friday.
 """
     meeting = client.post("/api/meetings", json={

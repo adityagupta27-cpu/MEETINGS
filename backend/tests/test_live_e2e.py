@@ -9,7 +9,7 @@ def test_live_full_user_journey():
     password = "SecurePassword123!"
     full_name = "Sarah Connor E2E"
 
-    client = httpx.Client(base_url=BASE_URL, timeout=10.0)
+    client = httpx.Client(base_url=BASE_URL, timeout=60.0)
 
     # 1. Healthcheck
     health_resp = client.get("/health")
@@ -52,6 +52,8 @@ Sarah Connor: What if our transcript file is greater than 2MB?
 David Miller: That is a potential risk that we should handle with strict file size validation.
 Sarah Connor: Please make sure the UI supports both dark mode and light mode.
 Alex Vance: I can handle the dark mode theme toggle by next week.
+Sarah Connor: What is our exact timeline for cloud backup migration? We should decide that in the future.
+David Miller: Let's table that question for our next sync.
 """
     meeting_resp = client.post("/meetings", json={
         "title": "Q3 Architecture & Deliverables Sync",

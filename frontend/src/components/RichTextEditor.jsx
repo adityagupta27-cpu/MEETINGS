@@ -11,6 +11,17 @@ import {
   RotateCw
 } from 'lucide-react';
 
+const formatContent = (val) => {
+  if (!val) return '';
+  if (typeof val === 'string' && !val.includes('<p>') && val.includes('\n')) {
+    return val
+      .split('\n\n')
+      .map((block) => `<p>${block.replace(/\n/g, '<br/>')}</p>`)
+      .join('');
+  }
+  return val;
+};
+
 export default function RichTextEditor({ content, onChange, placeholder = 'Write notes...' }) {
   const editor = useEditor({
     extensions: [
@@ -20,21 +31,24 @@ export default function RichTextEditor({ content, onChange, placeholder = 'Write
         },
       }),
     ],
-    content: content || '',
+    content: formatContent(content),
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
     editorProps: {
       attributes: {
-        class: 'prose dark:prose-invert max-w-none focus:outline-none min-h-[140px] text-sm text-slate-800 dark:text-slate-200 p-3',
+        class: 'prose dark:prose-invert max-w-none focus:outline-none min-h-[160px] text-sm text-slate-800 dark:text-slate-200 p-4 leading-relaxed',
       },
     },
   });
 
   // Keep editor content in sync if updated externally
   React.useEffect(() => {
-    if (editor && content !== undefined && editor.getHTML() !== content) {
-      editor.commands.setContent(content || '');
+    if (editor && content !== undefined) {
+      const formatted = formatContent(content);
+      if (editor.getHTML() !== formatted && editor.getText() !== content) {
+        editor.commands.setContent(formatted || '');
+      }
     }
   }, [content, editor]);
 
