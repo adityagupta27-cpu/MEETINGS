@@ -7,7 +7,7 @@ This document truthfully and transparently details the utilization of AI tools, 
 ## 1. AI Tools Utilized
 
 - **Antigravity AI Agent (DeepMind / Gemini 3.8 Flash)**: Used as the principal engineering assistant for planning, specification authoring, full-stack implementation, test generation, and documentation.
-- **Google Gemini 1.5 Flash (via REST API)**: Optional external Large Language Model integrated into the backend AI service boundary for live transcript synthesis.
+- **Google Gemini 2.5 Flash (via REST API)**: Optional external Large Language Model integrated into the backend AI service boundary for live transcript synthesis.
 
 ---
 
@@ -23,7 +23,7 @@ This document truthfully and transparently details the utilization of AI tools, 
    - Built modern SaaS components using React 19, Tailwind CSS v4, Lucide React, and TipTap.
    - Created state contexts for authentication sessions and light/dark theme persistence.
 4. **Automated Testing & Quality Verification**:
-   - Authored 20 unit and integration tests covering authentication, meeting CRUD, transcript validation, AI synthesis, action tracker filters, and dashboard KPIs.
+   - Authored 21 unit and integration tests covering authentication, meeting CRUD, transcript validation, AI synthesis, action tracker filters, and dashboard KPIs.
    - Created a live end-to-end integration test ([test_live_e2e.py](backend/tests/test_live_e2e.py)) exercising the live FastAPI and Vite servers.
 
 ---
@@ -63,6 +63,9 @@ During the autonomous execution, several real engineering issues were encountere
 4. **Upstream Browser Playwright Driver CDN Failure (404)**:
    - *Issue*: During browser subagent initialization, the automated browser manager attempted to download `playwright-1.57.0-mac-arm64.zip` from Microsoft Azure Edge CDN, which returned HTTP 404.
    - *Correction*: Followed the system safety guidelines, halted tool retries, consulted the user via the interactive prompt, and proceeded with live HTTP integration verification ([test_live_e2e.py](backend/tests/test_live_e2e.py)) exercising the running servers directly.
+5. **Gemini API Model Deprecation (404 Not Found on gemini-1.5-flash)**:
+   - *Issue*: Google's endpoint returned `404 Not Found` for the legacy `gemini-1.5-flash` model endpoint under v1beta.
+   - *Correction*: Upgraded the REST endpoint configuration to modern `gemini-2.5-flash`, refined the executive extraction system prompt with structured JSON formatting instructions, and validated end-to-end extraction across all 6 meeting intelligence categories.
 
 ---
 
@@ -85,6 +88,6 @@ During the autonomous execution, several real engineering issues were encountere
 
 ## 6. Verification Records
 
-- **Unit & Integration Tests**: 20 tests executed via `pytest backend/tests -v`, all 20 passing with 100% success rate.
+- **Unit & Integration Tests**: 21 tests executed via `pytest backend/tests -v`, all 21 passing with 100% success rate.
 - **Live End-to-End Test**: `backend/tests/test_live_e2e.py` executed against live backend port 8000 and verified registration, cookie issuance, meeting creation, AI extraction, action updates, tracker filtering, and logout.
 - **Frontend Build**: `npm run build` executed and verified, generating clean production bundles in under 300ms.
