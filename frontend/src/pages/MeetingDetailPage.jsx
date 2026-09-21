@@ -18,12 +18,23 @@ import {
   AlertCircle,
   Save,
   Clock,
-  ExternalLink
+  ExternalLink,
+  X
 } from 'lucide-react';
 import { api } from '../services/api';
 import RichTextEditor from '../components/RichTextEditor';
 import ActionItemModal from '../components/ActionItemModal';
 import ConfirmModal from '../components/ConfirmModal';
+
+const MEETING_TYPES = [
+  'Project Meeting',
+  'Client Meeting',
+  'Sales Meeting',
+  'Internal Meeting',
+  'Requirement Discussion',
+  'Retrospective',
+  'Other'
+];
 
 export default function MeetingDetailPage() {
   const { id } = useParams();
@@ -44,7 +55,17 @@ export default function MeetingDetailPage() {
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [editingAction, setEditingAction] = useState(null);
   const [deleteMeetingOpen, setDeleteMeetingOpen] = useState(false);
+  const [deleteMeetingLoading, setDeleteMeetingLoading] = useState(false);
   const [deleteActionTarget, setDeleteActionTarget] = useState(null);
+  const [deleteActionLoading, setDeleteActionLoading] = useState(false);
+  
+  // Edit Meeting Metadata Modal
+  const [editMetaOpen, setEditMetaOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editType, setEditType] = useState('Project Meeting');
+  const [editParticipants, setEditParticipants] = useState('');
+  const [savingMeta, setSavingMeta] = useState(false);
 
   const loadData = async () => {
     setError('');
@@ -56,6 +77,10 @@ export default function MeetingDetailPage() {
       setMeeting(m);
       setActions(a);
       setEditedSummary(m.summary || '');
+      setEditTitle(m.title || '');
+      setEditDate(m.meeting_date || '');
+      setEditType(m.meeting_type || 'Project Meeting');
+      setEditParticipants(m.participants ? m.participants.join(', ') : '');
     } catch (err) {
       setError(err.message || 'Failed to load meeting details.');
     } finally {
@@ -99,12 +124,42 @@ export default function MeetingDetailPage() {
     }
   };
 
+  const handleSaveMetadata = async (e) => {
+    e.preventDefault();
+    if (!editTitle.trim()) return;
+
+    setSavingMeta(true);
+    try {
+      const parts = editParticipants
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
+
+      const updated = await api.updateMeeting(id, {
+        title: editTitle.trim(),
+        meeting_date: editDate,
+        meeting_type: editType,
+        participants: parts
+      });
+      setMeeting(updated);
+      setEditMetaOpen(false);
+      setFeedback('Meeting details updated successfully.');
+    } catch (err) {
+      setError(err.message || 'Failed to update meeting details.');
+    } finally {
+      setSavingMeta(false);
+    }
+  };
+
   const handleDeleteMeeting = async () => {
+    setDeleteMeetingLoading(true);
     try {
       await api.deleteMeeting(id);
       navigate('/meetings');
     } catch (err) {
-      alert(err.message || 'Failed to delete meeting.');
+      setError(err.message || 'Failed to delete meeting.');
+      setDeleteMeetingLoading(false);
+      setDeleteMeetingOpen(false);
     }
   };
 
@@ -113,6 +168,7 @@ export default function MeetingDetailPage() {
       // Update
       const updated = await api.updateAction(editingAction.id, payload);
       setActions(actions.map((a) => (a.id === updated.id ? updated : a)));
+      setFeedback('Action item updated.');
     } else {
       // Create
       const created = await api.createAction({
@@ -120,6 +176,7 @@ export default function MeetingDetailPage() {
         meeting_id: id
       });
       setActions([created, ...actions]);
+      setFeedback('New action item created.');
     }
   };
 
@@ -128,18 +185,22 @@ export default function MeetingDetailPage() {
       const updated = await api.updateAction(actionId, { status: newStatus });
       setActions(actions.map((a) => (a.id === actionId ? updated : a)));
     } catch (err) {
-      alert(err.message || 'Failed to update status.');
+      setError(err.message || 'Failed to update status.');
     }
   };
 
   const handleConfirmDeleteAction = async () => {
     if (!deleteActionTarget) return;
+    setDeleteActionLoading(true);
     try {
       await api.deleteAction(deleteActionTarget.id);
       setActions(actions.filter((a) => a.id !== deleteActionTarget.id));
       setDeleteActionTarget(null);
+      setFeedback('Action item deleted.');
     } catch (err) {
-      alert(err.message || 'Failed to delete action item.');
+      setError(err.message || 'Failed to delete action item.');
+    } finally {
+      setDeleteActionLoading(false);
     }
   };
 
@@ -160,7 +221,7 @@ export default function MeetingDetailPage() {
         <p className="text-sm">{error}</p>
         <button
           onClick={() => navigate('/meetings')}
-          className="mt-4 px-4 py-2 bg-rose-600 text-white rounded-xl text-sm"
+          className="mt-4 px-4 py-2 bg-rose-600 text-white rounded-xl text-sm cursor-pointer"
         >
           Return to Meetings
         </button>
@@ -192,6 +253,15 @@ export default function MeetingDetailPage() {
 
         <div className="flex items-center space-x-3">
           <button
+            onClick={() => setEditMetaOpen(true)}
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
+            title="Edit Meeting Metadata"
+          >
+            <Edit className="w-4 h-4" />
+            <span>Edit Details</span>
+          </button>
+
+          <button
             onClick={handleProcessAI}
             disabled={processingAI}
             className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs sm:text-sm shadow-sm shadow-indigo-600/30 transition-all cursor-pointer disabled:opacity-50"
@@ -214,7 +284,7 @@ export default function MeetingDetailPage() {
       {feedback && (
         <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 flex items-center justify-between text-emerald-700 dark:text-emerald-300 text-sm">
           <span>{feedback}</span>
-          <button onClick={() => setFeedback('')} className="text-xs font-bold cursor-pointer">
+          <button onClick={() => setFeedback('')} className="text-xs font-bold cursor-pointer hover:underline">
             Dismiss
           </button>
         </div>
@@ -584,6 +654,101 @@ export default function MeetingDetailPage() {
         )}
       </div>
 
+      {/* Edit Metadata Modal */}
+      {editMetaOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Edit Meeting Details</h2>
+              <button
+                onClick={() => setEditMetaOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMetadata} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Meeting Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Meeting Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Meeting Type
+                  </label>
+                  <select
+                    value={editType}
+                    onChange={(e) => setEditType(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer"
+                  >
+                    {MEETING_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Participants <span className="text-slate-400 font-normal">(comma-separated)</span>
+                </label>
+                <input
+                  type="text"
+                  value={editParticipants}
+                  onChange={(e) => setEditParticipants(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditMetaOpen(false)}
+                  disabled={savingMeta}
+                  className="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingMeta}
+                  className="flex items-center space-x-2 px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{savingMeta ? 'Saving...' : 'Update Details'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Action Item Modal */}
       <ActionItemModal
         isOpen={actionModalOpen}
@@ -603,7 +768,8 @@ export default function MeetingDetailPage() {
         onClose={() => setDeleteMeetingOpen(false)}
         onConfirm={handleDeleteMeeting}
         title="Delete Meeting"
-        message={`Are you sure you want to delete "${meeting.title}"? This cannot be undone.`}
+        message={`Are you sure you want to delete "${meeting.title}"? All associated action items will also be deleted.`}
+        loading={deleteMeetingLoading}
       />
 
       {/* Delete Action Confirmation */}
@@ -613,6 +779,7 @@ export default function MeetingDetailPage() {
         onConfirm={handleConfirmDeleteAction}
         title="Delete Action Item"
         message={`Are you sure you want to delete the task: "${deleteActionTarget?.task}"?`}
+        loading={deleteActionLoading}
       />
     </div>
   );
