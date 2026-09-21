@@ -167,24 +167,32 @@ class MockAIService(BaseAIService):
         # 5. Discussion Points
         discussion_points: List[str] = []
         for line in lines:
-            clean = re.sub(r"^[A-Za-z0-9_\-\s]{1,30}:\s*", "", line)
-            clean = clean.strip()
-            if len(clean) > 25 and clean not in decisions and clean not in risks and clean not in unanswered_questions:
-                # Filter out raw conversational fillers
+            clean = re.sub(r"^[A-Za-z0-9_\-\s]{1,30}:\s*", "", line).strip()
+            # Clean conversational prefixes
+            clean = re.sub(r"^(welcome team to|welcome everyone to|let's discuss|we need to discuss)\s*", "", clean, flags=re.IGNORECASE).strip()
+            if len(clean) > 20 and clean not in decisions and clean not in risks and clean not in unanswered_questions:
                 if not clean.lower().startswith(("hello", "hi ", "bye", "thanks", "thank you", "okay", "alright", "yes", "no")):
-                    discussion_points.append(clean)
+                    # Capitalize first letter and ensure ending punctuation
+                    formatted = clean[0].upper() + clean[1:]
+                    if not formatted.endswith((".", "?", "!")):
+                        formatted += "."
+                    if formatted not in discussion_points:
+                        discussion_points.append(formatted)
             if len(discussion_points) >= 6:
                 break
 
-        # 6. Executive Summary Synthesis
-        participants_str = ", ".join(known_participants[:4]) if known_participants else "The project team"
-        key_theme = discussion_points[0] if discussion_points else "the core sprint deliverables"
-        summary_paragraphs = [
-            f"{participants_str} convened on {base_date.isoformat()} to review {key_theme} and align on operational priorities.",
-            f"Key progress was made with {len(decisions)} strategic decision(s) reached and {len(action_items)} high-priority action item(s) committed across the team.",
-            "Potential risks and pending technical questions were cataloged to ensure proactive unblocking in the next iteration." if (risks or unanswered_questions) else "All items proceeded according to schedule with no major impediments reported."
-        ]
-        summary = " ".join(summary_paragraphs)
+        # 6. Executive Summary Synthesis (Structured 2-3 Paragraph Narrative)
+        attendees_text = ", ".join(known_participants[:4]) if known_participants else "The project team"
+        theme_summary = discussion_points[0].rstrip(".") if discussion_points else "project milestones and technical architecture"
+        
+        p1 = f"{attendees_text} convened on {base_date.strftime('%B %d, %Y')} for a structured operational sync. The primary focus of deliberations was {theme_summary.lower()}."
+        p2 = f"During the discussion, the team established consensus on {len(decisions)} critical architectural decision(s) and outlined {len(action_items)} high-priority deliverable(s) across key owners."
+        if risks or unanswered_questions:
+            risk_clause = f" The session also surfaced {len(risks)} potential risk factor(s) and {len(unanswered_questions)} technical inquiry/inquiries earmarked for follow-up review."
+            p2 += risk_clause
+        p3 = "All deliverables have been logged with corresponding owners and targeted due dates to ensure timely execution."
+        
+        summary = f"{p1}\n\n{p2}\n\n{p3}"
 
         return AIAnalysisResponse(
             summary=summary,
@@ -262,8 +270,15 @@ Produce a comprehensive, polished JSON output matching this exact structure:
 }}
 """
 
-        # Models to try in order of priority
-        candidate_models = ["gemini-2.5-flash", "gemini-flash-latest"]
+        # Models to try in order of priority (prioritizing high-availability, high-quota models)
+        candidate_models = [
+            "gemini-3.5-flash",
+            "gemini-3.7-flash",
+            "gemini-3.8-flash",
+            "gemini-flash-latest",
+            "gemini-flash-lite-latest",
+            "gemini-2.5-flash"
+        ]
         
         for model in candidate_models:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
