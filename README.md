@@ -6,6 +6,7 @@
 [![SQLite](https://img.shields.io/badge/Database-SQLite%20(WAL%20%2B%20FK)-003B57?style=flat&logo=sqlite)](https://www.sqlite.org/)
 [![AI Engine](https://img.shields.io/badge/AI%20Provider-Gemini%202.5%20Flash%20%2F%20Mock-4285F4?style=flat&logo=google)](https://ai.google.dev/)
 [![Tests](https://img.shields.io/badge/Pytest-21%2F21%20Passing-brightgreen?style=flat&logo=pytest)](backend/tests/)
+[![Docker](https://img.shields.io/badge/Container-Docker%20Ready-2496ED?style=flat&logo=docker)](Dockerfile)
 
 An AI-native full-stack application built to capture post-meeting transcripts, extract structured meeting summaries, discussion points, key decisions, action items, risks, and open questions, and manage deliverables through an interactive Central Action Tracker and real-time operational dashboard.
 
@@ -248,7 +249,36 @@ The application enforces strict prompt and heuristic guardrails:
 
 ---
 
-## ⚙️ Quick Start & Local Setup
+## ⚙️ Quick Start & Deployment
+
+### 🐳 Docker Container (Single Command - Recommended)
+
+The entire full-stack application (FastAPI backend + compiled React frontend + Nginx reverse proxy + SQLite WAL database) is containerized and ready to run with zero local Python/Node dependencies:
+
+#### Option 1: Using Docker Compose
+```bash
+# Build and run container in detached mode
+docker compose up --build -d
+```
+The application will be instantly live at **http://localhost:8000** (with demo dataset pre-seeded).
+
+#### Option 2: Using Docker CLI
+```bash
+# 1. Build the production image
+docker build -t meetings-app:latest .
+
+# 2. Run the container
+docker run -d -p 8000:8000 --name meetings-container meetings-app:latest
+```
+Access the application at **http://localhost:8000**.
+
+**Default Seeded Demo Account:**
+- **Email**: `demo@example.com`
+- **Password**: `Password123!`
+
+---
+
+### 💻 Local Development Setup (Without Docker)
 
 ### Prerequisites
 - **Python 3.10+** (tested on Python 3.14)

@@ -1,0 +1,18 @@
+services:
+  meetings-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: meetings-app:latest
+    container_name: meetings-container
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - SECRET_KEY=${SECRET_KEY:-default_secret_key_change_in_production}
+    volumes:
+      - meetings_db_data:/app
+    restart: unless-stopped
+
+volumes:
+  meetings_db_data:
