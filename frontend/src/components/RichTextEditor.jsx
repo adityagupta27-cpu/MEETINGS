@@ -4,7 +4,9 @@ import StarterKit from '@tiptap/starter-kit';
 import {
   Bold,
   Italic,
+  Heading1,
   Heading2,
+  Heading3,
   List,
   ListOrdered,
   RotateCcw,
@@ -27,7 +29,7 @@ export default function RichTextEditor({ content, onChange, placeholder = 'Write
     extensions: [
       StarterKit.configure({
         heading: {
-          levels: [2, 3],
+          levels: [1, 2, 3],
         },
       }),
     ],
@@ -77,6 +79,32 @@ export default function RichTextEditor({ content, onChange, placeholder = 'Write
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-1 p-1.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
         <ToolbarButton
+          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          isActive={editor.isActive('heading', { level: 1 })}
+          title="Heading 1"
+        >
+          <Heading1 className="w-4 h-4" />
+        </ToolbarButton>
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          isActive={editor.isActive('heading', { level: 2 })}
+          title="Heading 2"
+        >
+          <Heading2 className="w-4 h-4" />
+        </ToolbarButton>
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          isActive={editor.isActive('heading', { level: 3 })}
+          title="Heading 3"
+        >
+          <Heading3 className="w-4 h-4" />
+        </ToolbarButton>
+
+        <div className="w-[1px] h-4 bg-slate-300 dark:bg-slate-700 mx-1" />
+
+        <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           isActive={editor.isActive('bold')}
           title="Bold"
@@ -90,14 +118,6 @@ export default function RichTextEditor({ content, onChange, placeholder = 'Write
           title="Italic"
         >
           <Italic className="w-4 h-4" />
-        </ToolbarButton>
-
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          isActive={editor.isActive('heading', { level: 2 })}
-          title="Heading"
-        >
-          <Heading2 className="w-4 h-4" />
         </ToolbarButton>
 
         <div className="w-[1px] h-4 bg-slate-300 dark:bg-slate-700 mx-1" />

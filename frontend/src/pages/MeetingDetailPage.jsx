@@ -341,6 +341,41 @@ export default function MeetingDetailPage() {
             ))}
           </div>
         )}
+
+        {/* Timestamps: Created Date & Updated Date */}
+        <div className="flex flex-wrap items-center gap-3 pt-2 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800/60">
+          <span className="flex items-center space-x-1.5" title="Date Created">
+            <Clock className="w-3.5 h-3.5 text-slate-400" />
+            <span>
+              Created:{' '}
+              {meeting.created_at
+                ? new Date(meeting.created_at).toLocaleDateString(undefined, {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })
+                : 'N/A'}
+            </span>
+          </span>
+          <span className="text-slate-300 dark:text-slate-700">•</span>
+          <span className="flex items-center space-x-1.5" title="Date Last Updated">
+            <Clock className="w-3.5 h-3.5 text-slate-400" />
+            <span>
+              Updated:{' '}
+              {meeting.updated_at
+                ? new Date(meeting.updated_at).toLocaleDateString(undefined, {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })
+                : 'N/A'}
+            </span>
+          </span>
+        </div>
       </div>
 
       {/* Transcript Accordion */}

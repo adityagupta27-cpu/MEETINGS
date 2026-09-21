@@ -8,7 +8,8 @@ import {
   Users,
   CheckSquare,
   ArrowRight,
-  Filter
+  Filter,
+  Clock
 } from 'lucide-react';
 import { api } from '../services/api';
 import EmptyState from '../components/EmptyState';
@@ -201,6 +202,18 @@ export default function MeetingsPage() {
                     ))}
                   </div>
                 )}
+
+                {/* Created and Updated timestamps */}
+                <div className="flex items-center space-x-2 text-[11px] text-slate-400 dark:text-slate-500 pt-1">
+                  <Clock className="w-3 h-3 shrink-0" />
+                  <span>
+                    Created: {new Date(meeting.created_at).toLocaleDateString()}
+                  </span>
+                  <span>•</span>
+                  <span>
+                    Updated: {new Date(meeting.updated_at).toLocaleDateString()}
+                  </span>
+                </div>
               </div>
 
               <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
